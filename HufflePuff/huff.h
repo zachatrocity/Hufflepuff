@@ -1,0 +1,10 @@
+
+
+class huff
+{
+	public:
+
+
+	private:
+
+};
