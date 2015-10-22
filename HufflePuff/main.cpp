@@ -19,7 +19,17 @@ int main(){
 	inputFile.open(fn, ios::in | ios::out | ios::binary);
 	outputFile.open(createNewHuffFile(fn), ios::out | ios::binary);
 
-
+	//huffman algorthim
+	//1 - Build a sorted ascending glyph frequency
+	//2 - repeat until glyph - 1 merge
+	//		Mark (m) lower of slots [1] and [2]
+	//		move (m) to free slot (f)
+	//		if (m) < (end of current heap(h)), move (h) to (m)
+	//		reheap()
+	//		move lowest freq node [0] to (h)
+	//		create freq node at [0]
+	//		reheap()
+	//		move (h) and (f)
 
 	return 0;
 }
