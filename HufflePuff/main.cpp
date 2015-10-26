@@ -5,33 +5,36 @@
 
 using namespace std;
 
+const int MAXSIZE = 256;
+
 //utility functions
 string createNewHuffFile(string fn);
+void printFreqTable(int[]);
 
-
-int main(){
+void main(){
 	fstream inputFile;
 	fstream outputFile;
 	string fn = "";
+	int freqtable[MAXSIZE] = { 0 };
+	int readSize = 1;
+	unsigned char buffer[1];
 	cout << "please enter a file name:" << endl;
 	getline(cin, fn);
 
-	inputFile.open(fn, ios::in | ios::out | ios::binary);
+	inputFile.open(fn, ios::in | ios::binary);
 	outputFile.open(createNewHuffFile(fn), ios::out | ios::binary);
+	
+	inputFile.read((char*)buffer, 1);
 
-	//huffman algorthim
-	//1 - Build a sorted ascending glyph frequency
-	//2 - repeat until glyph - 1 merge
-	//		Mark (m) lower of slots [1] and [2]
-	//		move (m) to free slot (f)
-	//		if (m) < (end of current heap(h)), move (h) to (m)
-	//		reheap()
-	//		move lowest freq node [0] to (h)
-	//		create freq node at [0]
-	//		reheap()
-	//		move (h) and (f)
+	while (buffer[0] != inputFile.eofbit && !inputFile.eof())
+	{
+		freqtable[buffer[0]]++;
+		inputFile.read((char*)buffer, readSize);
+	}
+	
+	printFreqTable(freqtable);
 
-	return 0;
+	system("pause");
 }
 
 //1) Header metadata
@@ -66,5 +69,16 @@ string createNewHuffFile(string inputPath)
 	}
 
 	return outputPath + outputName;
+}
+
+void printFreqTable(int freqtable[])
+{
+	for (int i = 0; i < MAXSIZE; i++)
+	{
+		if (freqtable[i] > 0)
+		{
+			cout << '\'' << (char)i << "' | " << freqtable[i] << endl;
+		}
+	}
 }
 
