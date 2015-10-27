@@ -1,7 +1,11 @@
 #include <iostream>
+#include <ctime>
 #include <fstream>
 #include <string>
+#include <stdio.h>
+#include <stdlib.h>
 #include "huff.h"
+#include <iomanip>
 #include <algorithm>
 
 using namespace std;
@@ -19,9 +23,6 @@ const static int HUFMAXSIZE = 513;
 static int freqtable[MAXSIZE] = { 0 };
 static huffnode hufftable[HUFMAXSIZE] = { -1 };
 
-
-
-
 //utility functions
 string createNewHuffFile(string fn);
 void buildHuffTree();
@@ -34,23 +35,39 @@ void main(){
 	fstream inputFile;
 	fstream outputFile;
 	string fn = "";
-	
+	clock_t start, end;
 
 	int readSize = 1;
-	unsigned char buffer[1];
-	cout << "please enter a file name:" << endl;
+	//unsigned char buffer[1];
+	cout << "please enter a file name:" << '\n';
 	getline(cin, fn);
 
-	inputFile.open(fn, ios::in | ios::binary);
-	outputFile.open(createNewHuffFile(fn), ios::out | ios::binary);
+	//START CLOCK
+	start = clock();
+
+	//inputFile.open(fn, ios::in | ios::binary);
+	//outputFile.open(createNewHuffFile(fn), ios::out | ios::binary);
+
+	FILE* file;
+	errno_t errorCode = fopen_s(&file, fn.c_str(), "rb");
+	// obtain file size:
+	fseek(file, 0, SEEK_END);
+	long lSize = ftell(file);
+	rewind(file);
+
+	// allocate memory to contain the whole file:
+	char *inputFileBuffer = (char*)malloc(sizeof(char)*lSize);
+	if (inputFileBuffer == NULL) { fputs("Memory error", stderr); exit(2); }
 	
-	inputFile.read((char*)buffer, 1);
+	// copy the file into the buffer:
+	size_t result = fread(inputFileBuffer, 1, lSize, file);
+	if (result != lSize) { fputs("Reading error", stderr); exit(3); }
+	/* the whole file is now loaded in the memory buffer. */
 
 	//get frequencies
-	while (buffer[0] != inputFile.eofbit && !inputFile.eof())
+	for (int i = 0; i < result; i++)
 	{
-		freqtable[buffer[0]]++;
-		inputFile.read((char*)buffer, readSize);
+		freqtable[inputFileBuffer[i]]++;
 	}
 	
 	printFreqTable();
@@ -58,6 +75,9 @@ void main(){
 	//begin huffman algorithm
 	buildHuffTree();
 	
+	//END CLOCK
+	end = clock();
+	cout << "The time was " << (double(end - start) / CLOCKS_PER_SEC) << '\n';
 
 	system("pause");
 }
@@ -105,7 +125,7 @@ void buildHuffTree() {
 
 	//repeat until glyph - 1 merge
 	for (int merge = 0; merge < loc; merge++){
-		log("Merge " + merge);
+		log("Merge");
 
 		//mark m lower of slots 1 and 2
 		int m = (hufftable[1].freq < hufftable[2].freq) ? 1 : 2;
@@ -142,7 +162,7 @@ void reheap(int start){
 }
 
 void log(string l){
-	cout << "DEBUG: " << l << endl;
+	cout << "DEBUG: " << l << '\n';
 }
 
 string createNewHuffFile(string inputPath)
@@ -171,11 +191,11 @@ void printFreqTable()
 	{
 		if (freqtable[i] > 0)
 		{
-			cout << '\'' << (char)i << "' | " << freqtable[i] << endl;
+			cout << '\'' << (char)i << "' | " << freqtable[i] << '\n';
 		}
 	}
 
-	cout << endl;
+	cout << '\n';
 }
 
 void printHuffTable(int size)
@@ -184,10 +204,10 @@ void printHuffTable(int size)
 	{
 		if (hufftable[i].freq > 0)
 		{
-			cout << "G: " << (char)hufftable[i].glyph << endl;
-			cout << "F: " << hufftable[i].freq << endl;
-			cout << "L: " << hufftable[i].left << endl;
-			cout << "R: " << hufftable[i].right << endl << endl;
+			cout << "G: " << (char)hufftable[i].glyph << '\n';
+			cout << "F: " << hufftable[i].freq << '\n';
+			cout << "L: " << hufftable[i].left << '\n';
+			cout << "R: " << hufftable[i].right << '\n' << '\n';
 		}
 	}
 }
