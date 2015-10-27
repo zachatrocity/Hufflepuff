@@ -2,20 +2,40 @@
 #include <fstream>
 #include <string>
 #include "huff.h"
+#include <algorithm>
 
 using namespace std;
 
-const int MAXSIZE = 256;
+
+struct huffnode{
+	int glyph;
+	int freq;
+	int left;
+	int right;
+};
+
+const static int MAXSIZE = 256; 
+const static int HUFMAXSIZE = 513;
+static int freqtable[MAXSIZE] = { 0 };
+static huffnode hufftable[HUFMAXSIZE] = { -1 };
+
+
+
 
 //utility functions
 string createNewHuffFile(string fn);
-void printFreqTable(int[]);
+void buildHuffTree();
+void printFreqTable();
+void printHuffTable(int size);
+void reheap(int start);
+void log(string l);
 
 void main(){
 	fstream inputFile;
 	fstream outputFile;
 	string fn = "";
-	int freqtable[MAXSIZE] = { 0 };
+	
+
 	int readSize = 1;
 	unsigned char buffer[1];
 	cout << "please enter a file name:" << endl;
@@ -26,13 +46,18 @@ void main(){
 	
 	inputFile.read((char*)buffer, 1);
 
+	//get frequencies
 	while (buffer[0] != inputFile.eofbit && !inputFile.eof())
 	{
 		freqtable[buffer[0]]++;
 		inputFile.read((char*)buffer, readSize);
 	}
 	
-	printFreqTable(freqtable);
+	printFreqTable();
+
+	//begin huffman algorithm
+	buildHuffTree();
+	
 
 	system("pause");
 }
@@ -50,6 +75,75 @@ void main(){
 //	NOTE : The maximum number of entries in a huffman table would be 513 (257 possible glyphs + 256
 //	   merge(frequency) nodes.)
 //2) Compressed data
+
+void buildHuffTree() {
+
+	//build sorted ascending array
+	int loc = 0;
+	for (int i = 0; i < MAXSIZE; i++)
+	{
+		if (freqtable[i] > 0)
+		{
+			huffnode node;
+			node.glyph = (char)i;
+			node.freq = freqtable[i];
+			node.left = -1;
+			node.right = -1;
+			hufftable[loc] = node;
+			loc++;
+		}
+	}
+
+	std::sort(hufftable, hufftable + loc, [](const huffnode &x, const huffnode &y){
+		return x.freq < y.freq;
+	});
+
+	printHuffTable(loc);
+
+	int f = loc + 1;
+	int h = loc;
+
+	//repeat until glyph - 1 merge
+	for (int merge = 0; merge < loc; merge++){
+		log("Merge " + merge);
+
+		//mark m lower of slots 1 and 2
+		int m = (hufftable[1].freq < hufftable[2].freq) ? 1 : 2;
+		//move m to next free slot
+		hufftable[f] = hufftable[m];
+		//if m < the end of the heap (h) move h to m
+		if (m < h) {
+			hufftable[m] = hufftable[h];
+			reheap(m);
+		}
+		//move lowest freq node to h
+		hufftable[h] = hufftable[0];
+		//create freq node at slot 0;
+		huffnode fqnode; 
+		fqnode.glyph = -1; 
+		fqnode.freq = (hufftable[f].freq + hufftable[h].freq);
+		fqnode.left = h;
+		fqnode.right = f;
+		hufftable[0] = fqnode;
+		//reheap 
+		reheap(0);
+		//move h and f
+		h--;
+		f++;
+	}
+
+	
+
+
+}
+
+void reheap(int start){
+
+}
+
+void log(string l){
+	cout << "DEBUG: " << l << endl;
+}
 
 string createNewHuffFile(string inputPath)
 {
@@ -71,13 +165,29 @@ string createNewHuffFile(string inputPath)
 	return outputPath + outputName;
 }
 
-void printFreqTable(int freqtable[])
+void printFreqTable()
 {
 	for (int i = 0; i < MAXSIZE; i++)
 	{
 		if (freqtable[i] > 0)
 		{
 			cout << '\'' << (char)i << "' | " << freqtable[i] << endl;
+		}
+	}
+
+	cout << endl;
+}
+
+void printHuffTable(int size)
+{
+	for (int i = 0; i < size; i++)
+	{
+		if (hufftable[i].freq > 0)
+		{
+			cout << "G: " << (char)hufftable[i].glyph << endl;
+			cout << "F: " << hufftable[i].freq << endl;
+			cout << "L: " << hufftable[i].left << endl;
+			cout << "R: " << hufftable[i].right << endl << endl;
 		}
 	}
 }
