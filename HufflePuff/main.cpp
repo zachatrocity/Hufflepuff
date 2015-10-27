@@ -1,4 +1,7 @@
+//Zach Russell & Stuart Spradling --- Huff
+
 #include <iostream>
+#include <fstream>
 #include <ctime>
 #include <string>
 #include <stdio.h>
@@ -6,43 +9,50 @@
 #include "huff.h"
 #include <iomanip>
 #include <algorithm>
-
-
+#include <vector>
 using namespace std;
-
 
 struct huffnode{
 	int glyph;
-	int freq;
 	int left;
 	int right;
+	int freq;
 };
 
-const static int MAXSIZE = 256; 
+typedef string huffCode;
+
+const static unsigned long long size = 8ULL * 1024ULL * 1024ULL;
+static unsigned long long outBuffer[size];
+const static int MAXSIZE = 257; 
 const static int HUFMAXSIZE = 513;
 static int freqtable[MAXSIZE] = { 0 };
 static huffnode hufftable[HUFMAXSIZE] = { -1 };
+static huffCode huffMap[MAXSIZE] = { "" };
+static FILE* oFile;
+static FILE* file;
+static char fn[100];
+static ofstream outputFile;
 
 //utility functions
 string createNewHuffFile(string fn);
-void buildHuffTree();
+int buildHuffTree();
+void generateBitCodes(int start, int end, huffCode bitCode);
 void printFreqTable();
+void printBitCodes();
 void printHuffTable(int size);
 void reheap(int start, int end);
 void log(string l);
 
 void main(){
-	string fn = "";
 	clock_t start, end;
-
+	
 	cout << "please enter a file name:" << '\n';
-	getline(cin, fn);
+	cin >> fn;
 
 	//START CLOCK
 	start = clock();
-
-	FILE* file;
-	errno_t errorCode = fopen_s(&file, fn.c_str(), "rb");
+	
+	errno_t errorCode = fopen_s(&file, fn, "rb");
 	// obtain file size:
 	fseek(file, 0, SEEK_END);
 	long lSize = ftell(file);
@@ -63,20 +73,58 @@ void main(){
 		freqtable[inputFileBuffer[i]]++;
 	}
 	
+	//eof 
+	freqtable[256] = 1;
+
 	//printFreqTable();
 
 	//begin huffman algorithm
-	buildHuffTree();
+	int last = buildHuffTree();
+
+	//printHuffTable(0);
 
 	//generate codes
-
+	generateBitCodes(0, last, "");
 	//
+	//printBitCodes();
+
+	//create file header and write it out
+	outputFile.open(createNewHuffFile(fn), ios::binary);
+	int filesize = strlen(fn);
+	int numEntries = last + 1;
+	outputFile.write((char*)&filesize, sizeof(int));
+	outputFile.write((char*)&fn, filesize);
+	outputFile.write((char*)&numEntries, sizeof last);
+
+	for (int i = 0; i <= last; i++){
+		outputFile.write((char*)&hufftable[i], sizeof(int) * 3);
+	}
+
+	string encodedData = "";
+	//output the compressed data
+	for (int x = lSize; x > 0; x--){
+		//encodedData += huffMap[(unsigned char)inputFileBuffer[x]];
+		string code = huffMap[(unsigned char)inputFileBuffer[x]];
+		unsigned char byte = inputFileBuffer[x];
+		int bitstringLength = code.length();
+		int cnt = 0;
+		for (int j = 0; j < bitstringLength; j++)
+		{
+			//is the bit "on"?
+			if (code[j] == '1')
+				//turn the bit on using the OR bitwise operator
+				byte = byte | (int)pow(2.0, cnt);
+			cnt++;
+		}
+		outputFile << hex << uppercase << int(byte);
+		outputFile.write(reinterpret_cast<char*>(&byte), sizeof byte);
+	}
+
 	
+	outputFile.close();
 	//END CLOCK
 	end = clock();
 	cout << "The time was " << (double(end - start) / CLOCKS_PER_SEC) << '\n';
-
-	//printHuffTable(0);
 
 	system("pause");
 }
@@ -95,7 +143,7 @@ void main(){
 //	   merge(frequency) nodes.)
 //2) Compressed data
 
-void buildHuffTree() {
+int buildHuffTree() {
 
 	//build sorted ascending array
 	int loc = 0;
@@ -122,12 +170,14 @@ void buildHuffTree() {
 	int f = loc;
 	int h = loc - 1;
 
-	//repeat until glyph - 1 merge
-	for (int merge = 0; merge < loc; merge++){
-		//log("Merge");
-
+	//repeat until h is zero
+	while (h > 0){
 		//mark m lower of slots 1 and 2
 		int m = (hufftable[1].freq < hufftable[2].freq) ? 1 : 2;
+
+		if (h == 1)
+			m = 1;
+
 		//move m to next free slot
 		hufftable[f] = hufftable[m];
 		//if m < the end of the heap (h) move h to m
@@ -149,25 +199,53 @@ void buildHuffTree() {
 		//move h and f
 		h--;
 		f++;
+
 	}
 
+	return --f;
 }
 
 void reheap(int s, int e){
-	int left = (s << 1) + 1;
+  	int left = (s << 1) + 1;
 	int right = (s << 1) + 2;
+	bool leftIn = left < e;
+	bool rightIn = right < e;
+
 	if (s < e){
 
 		if (hufftable[left].freq < hufftable[s].freq || hufftable[right].freq < hufftable[s].freq){
-			//http://www.geeksforgeeks.org/compute-the-minimum-or-maximum-max-of-two-integers-without-branching/
-			int minIndex = (hufftable[left].freq < hufftable[right].freq) ? left : right;
-			//int minIndex = hufftable[left].freq ^ ((hufftable[right].freq ^ hufftable[left].freq) & -(hufftable[right].freq < hufftable[left].freq)); //min
-			huffnode temp = hufftable[minIndex];
-			hufftable[minIndex] = hufftable[s];
-			hufftable[s] = temp;
-			reheap(minIndex, e);
+			if (leftIn && rightIn){
+				int minIndex = (hufftable[left].freq > hufftable[right].freq) ? right : left;
+				huffnode temp = hufftable[minIndex];
+				hufftable[minIndex] = hufftable[s];
+				hufftable[s] = temp;
+				reheap(minIndex, e);
+			}
+			else if (leftIn){
+				huffnode temp = hufftable[left];
+				hufftable[left] = hufftable[s];
+				hufftable[s] = temp;
+				reheap(left, e);
+			}
 		}
 	}
+}
+
+void generateBitCodes(int start, int end, huffCode bitCode){
+
+
+	if (hufftable[start].left == -1 && hufftable[start].right == -1){
+		//leaf 
+		huffMap[hufftable[start].glyph] = bitCode;
+		bitCode = "";
+		return;
+	}
+
+	bitCode += "0";
+	generateBitCodes(hufftable[start].left, end, bitCode);
+
+	bitCode += "1";
+	generateBitCodes(hufftable[start].right, end, bitCode);
 }
 
 void log(string l){
@@ -176,22 +254,10 @@ void log(string l){
 
 string createNewHuffFile(string inputPath)
 {
-	size_t found = inputPath.find_last_of("/\\");
-	string outputPath = inputPath.substr(0, found) + "\\";  //append a back slash to the end of the path
-	string outputName = inputPath.substr(found + 1);
+	int lastindex = inputPath.find_last_of(".");
 
-	if (outputName.find(".")) // file name has extension
-	{
-		//strip off the extension and add .dmp
-		size_t period = outputName.find_last_of(".");
-		outputName = outputName.substr(0, period) + ".huf";
-	}
-	else {
-		//no file extension so just add .dmp
-		outputName += ".huf";
-	}
-
-	return outputPath + outputName;
+	string rawname = inputPath.substr(0, inputPath.find_last_of(".")) + ".huf";
+	return rawname;
 }
 
 void printFreqTable()
@@ -207,17 +273,33 @@ void printFreqTable()
 	cout << '\n';
 }
 
+
+void printBitCodes()
+{
+	for (int i = 0; i < MAXSIZE; i++)
+	{
+		if (huffMap[i] != "")
+		{
+			cout << (char)i << ":" << huffMap[i] << '\n';
+		}
+	}
+
+	cout << '\n';
+}
+
 void printHuffTable(int size)
 {
 	for (int i = 0; i < size; i++)
 	{
 		if (hufftable[i].freq > 0)
 		{
-			cout << "G: " << (char)hufftable[i].glyph << '\n';
-			cout << "F: " << hufftable[i].freq << '\n';
-			cout << "L: " << hufftable[i].left << '\n';
-			cout << "R: " << hufftable[i].right << '\n' << '\n';
+			cout << setw(4) << i << " G= " << setw(2) << ((hufftable[i].glyph > 0) ? (char)hufftable[i].glyph : -1) <<
+				" F= " << setw(4) << hufftable[i].freq <<
+				" L= " << setw(2) << hufftable[i].left <<
+				" R= " << setw(2) << hufftable[i].right << '\n';
 		}
 	}
+
+	cout << '\n';
 }
 
