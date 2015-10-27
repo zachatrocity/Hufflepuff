@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <algorithm>
 
+
 using namespace std;
 
 
@@ -28,7 +29,7 @@ string createNewHuffFile(string fn);
 void buildHuffTree();
 void printFreqTable();
 void printHuffTable(int size);
-void reheap(int start);
+void reheap(int start, int end);
 void log(string l);
 
 void main(){
@@ -70,14 +71,20 @@ void main(){
 		freqtable[inputFileBuffer[i]]++;
 	}
 	
-	printFreqTable();
+	//printFreqTable();
 
 	//begin huffman algorithm
 	buildHuffTree();
+
+	//generate codes
+
+	//
 	
 	//END CLOCK
 	end = clock();
 	cout << "The time was " << (double(end - start) / CLOCKS_PER_SEC) << '\n';
+
+	//printHuffTable(0);
 
 	system("pause");
 }
@@ -118,14 +125,14 @@ void buildHuffTree() {
 		return x.freq < y.freq;
 	});
 
-	printHuffTable(loc);
+	//printHuffTable(loc);
 
-	int f = loc + 1;
-	int h = loc;
+	int f = loc;
+	int h = loc - 1;
 
 	//repeat until glyph - 1 merge
 	for (int merge = 0; merge < loc; merge++){
-		log("Merge");
+		//log("Merge");
 
 		//mark m lower of slots 1 and 2
 		int m = (hufftable[1].freq < hufftable[2].freq) ? 1 : 2;
@@ -134,7 +141,7 @@ void buildHuffTree() {
 		//if m < the end of the heap (h) move h to m
 		if (m < h) {
 			hufftable[m] = hufftable[h];
-			reheap(m);
+			reheap(m, h);
 		}
 		//move lowest freq node to h
 		hufftable[h] = hufftable[0];
@@ -146,19 +153,29 @@ void buildHuffTree() {
 		fqnode.right = f;
 		hufftable[0] = fqnode;
 		//reheap 
-		reheap(0);
+		reheap(0, h);
 		//move h and f
 		h--;
 		f++;
 	}
 
-	
-
-
 }
 
-void reheap(int start){
+void reheap(int s, int e){
+	int left = (s << 1) + 1;
+	int right = (s << 1) + 2;
+	if (s < e){
 
+		if (hufftable[left].freq < hufftable[s].freq || hufftable[right].freq < hufftable[s].freq){
+			//http://www.geeksforgeeks.org/compute-the-minimum-or-maximum-max-of-two-integers-without-branching/
+			int minIndex = (hufftable[left].freq < hufftable[right].freq) ? left : right;
+			//int minIndex = hufftable[left].freq ^ ((hufftable[right].freq ^ hufftable[left].freq) & -(hufftable[right].freq < hufftable[left].freq)); //min
+			huffnode temp = hufftable[minIndex];
+			hufftable[minIndex] = hufftable[s];
+			hufftable[s] = temp;
+			reheap(minIndex, e);
+		}
+	}
 }
 
 void log(string l){
