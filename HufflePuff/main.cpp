@@ -1,6 +1,5 @@
 #include <iostream>
 #include <ctime>
-#include <fstream>
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,21 +32,14 @@ void reheap(int start, int end);
 void log(string l);
 
 void main(){
-	fstream inputFile;
-	fstream outputFile;
 	string fn = "";
 	clock_t start, end;
 
-	int readSize = 1;
-	//unsigned char buffer[1];
 	cout << "please enter a file name:" << '\n';
 	getline(cin, fn);
 
 	//START CLOCK
 	start = clock();
-
-	//inputFile.open(fn, ios::in | ios::binary);
-	//outputFile.open(createNewHuffFile(fn), ios::out | ios::binary);
 
 	FILE* file;
 	errno_t errorCode = fopen_s(&file, fn.c_str(), "rb");
