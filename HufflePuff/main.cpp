@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include "huff.h"
 #include <iomanip>
+#include <bitset>
 #include <algorithm>
 #include <vector>
 using namespace std;
@@ -105,19 +106,19 @@ void main(){
 	for (int x = lSize; x > 0; x--){
 		//encodedData += huffMap[(unsigned char)inputFileBuffer[x]];
 		string code = huffMap[(unsigned char)inputFileBuffer[x]];
-		unsigned char byte = inputFileBuffer[x];
-		int bitstringLength = code.length();
-		int cnt = 0;
-		for (int j = 0; j < bitstringLength; j++)
-		{
-			//is the bit "on"?
-			if (code[j] == '1')
-				//turn the bit on using the OR bitwise operator
-				byte = byte | (int)pow(2.0, cnt);
-			cnt++;
-		}
-		outputFile << hex << uppercase << int(byte);
-		outputFile.write(reinterpret_cast<char*>(&byte), sizeof byte);
+		
+		encodedData = code + encodedData;
+
+		//outputFile << hex << uppercase << int(byte);
+		//outputFile.write(reinterpret_cast<char*>(&byte), sizeof byte);
+	}
+	
+	for (int i = 0; i < encodedData.length(); i += 8)
+	{
+		bitset <8> hexValue(encodedData.substr(i, i + 8));
+		//cout << uppercase << hex << hexValue.to_ulong();
+		unsigned long byte = hexValue.to_ulong();
+		outputFile.write(reinterpret_cast<char*>(&byte), 1);
 	}
 
 	
