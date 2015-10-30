@@ -112,7 +112,13 @@ void main(){
 		//outputFile << hex << uppercase << int(byte);
 		//outputFile.write(reinterpret_cast<char*>(&byte), sizeof byte);
 	}
-	
+
+	int remainder = encodedData.length() % 8;
+	for (int i = 0; i < remainder; i++)
+	{
+		encodedData = "0" + encodedData;
+	}
+
 	for (int i = 0; i < encodedData.length(); i += 8)
 	{
 		bitset <8> hexValue(encodedData.substr(i, i + 8));
@@ -120,6 +126,7 @@ void main(){
 		unsigned long byte = hexValue.to_ulong();
 		outputFile.write(reinterpret_cast<char*>(&byte), 1);
 	}
+
 
 	
 	outputFile.close();
@@ -242,11 +249,11 @@ void generateBitCodes(int start, int end, huffCode bitCode){
 		return;
 	}
 
-	bitCode += "0";
-	generateBitCodes(hufftable[start].left, end, bitCode);
+	huffCode leftPr = bitCode + "0";
+	generateBitCodes(hufftable[start].left, end, leftPr);
 
-	bitCode += "1";
-	generateBitCodes(hufftable[start].right, end, bitCode);
+	huffCode rightPr = bitCode + "1";
+	generateBitCodes(hufftable[start].right, end, rightPr);
 }
 
 void log(string l){
