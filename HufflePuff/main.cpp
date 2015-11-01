@@ -102,16 +102,29 @@ void main(){
 	}
 
 	string encodedData = "";
+	
 	//output the compressed data
-	for (int x = lSize; x > 0; x--){
+	for (int x = lSize; x > 0; x--)
+	{
 		//encodedData += huffMap[(unsigned char)inputFileBuffer[x]];
 		string code = huffMap[(unsigned char)inputFileBuffer[x]];
 		
-		encodedData = code + encodedData;
-
+		
+			int counter = 0;
+			encodedData += code;
+			while ((encodedData.length() / 8) >= 1)
+			{
+				bitset<8> hexValue(encodedData.substr(counter, counter + 8));
+				unsigned long byte = hexValue.to_ulong();
+				outputFile.write(reinterpret_cast<char*>(&byte), 1);
+				encodedData.erase(encodedData.begin(), encodedData.begin()+7);
+				counter += 8;
+			}
+		
 		//outputFile << hex << uppercase << int(byte);
 		//outputFile.write(reinterpret_cast<char*>(&byte), sizeof byte);
 	}
+
 
 	int remainder = encodedData.length() % 8;
 	for (int i = 0; i < remainder; i++)
@@ -119,13 +132,17 @@ void main(){
 		encodedData = "0" + encodedData;
 	}
 
-	for (int i = 0; i < encodedData.length(); i += 8)
-	{
-		bitset <8> hexValue(encodedData.substr(i, i + 8));
-		//cout << uppercase << hex << hexValue.to_ulong();
-		unsigned long byte = hexValue.to_ulong();
-		outputFile.write(reinterpret_cast<char*>(&byte), 1);
-	}
+	bitset<8> hexValue(encodedData);
+	unsigned long byte = hexValue.to_ulong();
+	outputFile.write(reinterpret_cast<char*>(&byte), 1);
+
+	//for (int i = 0; i < encodedData.length(); i += 8)
+	//{
+	//	bitset <8> hexValue(encodedData.substr(i, i + 8));
+	//	//cout << uppercase << hex << hexValue.to_ulong();
+	//	unsigned long byte = hexValue.to_ulong();
+	//	outputFile.write(reinterpret_cast<char*>(&byte), 1);
+	//}
 
 
 	
