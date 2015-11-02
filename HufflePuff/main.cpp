@@ -11,6 +11,7 @@
 #include <bitset>
 #include <algorithm>
 #include <vector>
+#include <climits>
 
 using namespace std;
 
@@ -25,8 +26,8 @@ typedef string huffCode;
 
 const static unsigned long long size = 8ULL * 1024ULL * 1024ULL;
 static unsigned long long outBuffer[size];
-const static int MAXSIZE = 256; 
-const static int HUFMAXSIZE = 513;
+const static int MAXSIZE = (1 << CHAR_BIT) + 1; 
+const static int HUFMAXSIZE = MAXSIZE * 2;
 static int freqtable[MAXSIZE] = { 0 };
 static huffnode hufftable[HUFMAXSIZE] = { -1 };
 static huffCode huffMap[MAXSIZE] = { "" };
@@ -85,26 +86,27 @@ void main(){
 
 		fclose(file);
 
+
 		//get frequencies
-		for (int i = 0; i < result; i++)
+		for (size_t i = 0; i <= result; i++)
 		{
-			freqtable[inputFileBuffer[i]]++;
+			freqtable[(unsigned char)inputFileBuffer[i]]++;
 		}
 
-		//eof 
-		freqtable[256] = 1;
+		////eof 
+		freqtable[MAXSIZE] = 1;
 
-		//printFreqTable();
+		////printFreqTable();
 
-		//begin huffman algorithm
+		////begin huffman algorithm
 		int last = buildHuffTree();
 
-		//printHuffTable(0);
+		////printHuffTable(0);
 
-		//generate codes
+		////generate codes
 		generateBitCodes(0, last, "");
-		//
-		//printBitCodes();
+		////
+		////printBitCodes();
 
 		////create file header and write it out
 		outputFile.open(createNewHuffFile(fn), ios::binary);
@@ -121,7 +123,7 @@ void main(){
 		string encodedData = "";
 
 		//output the compressed data
-		for (int x = 0; x < lSize; x++)
+		for (int x = 0; x <= lSize; x++)
 		{
 			//encodedData += huffMap[(unsigned char)inputFileBuffer[x]];
 			string code = huffMap[(unsigned char)inputFileBuffer[x]];
@@ -131,7 +133,7 @@ void main(){
 			reverse(code.begin(), code.end());
 			encodedData.insert(0, code);
 
-			if ((encodedData.length() / 8) >= 1)
+			while ((encodedData.length() / 8) >= 1)
 			{
 				bitset<8> hexValue(encodedData.substr(encodedData.length() - 8, encodedData.length()));
 				unsigned long byte = hexValue.to_ulong();
@@ -175,8 +177,22 @@ void main(){
 		if (result != lSize) { fputs("Reading error", stderr); exit(3); }
 		/* the whole file is now loaded in the memory buffer. */
 
-		int last = buildHuffTreeFromFile(inputFileBuffer);
-		generateBitCodes(0, last, "");
+		int filenameSize = inputFileBuffer[0];
+		int numOfEntries = inputFileBuffer[filenameSize + 4];
+
+		int index = filenameSize + 8;
+		for (int i = 0; i < numOfEntries; i++)
+		{
+			hufftable[i].glyph = (unsigned char)inputFileBuffer[index];
+			index += 4;
+			hufftable[i].left = inputFileBuffer[index];
+			index += 4;
+			hufftable[i].right = inputFileBuffer[index];
+			index += 4;
+			hufftable[i].freq = 1;
+		}
+		
+		generateBitCodes(0, numOfEntries, "");
 		printBitCodes();
 
 		cout << "Placeholder";
@@ -188,7 +204,7 @@ void main(){
 	cout << "The time to encode the file was " << (double(end - start) / CLOCKS_PER_SEC) << '\n';
 	//free memory
 	free(inputFileBuffer);
-	//system("pause");
+	system("pause");
 }
 
 //1) Header metadata
@@ -209,12 +225,12 @@ int buildHuffTree() {
 
 	//build sorted ascending array
 	int loc = 0;
-	for (int i = 0; i < MAXSIZE; i++)
+	for (int i = 0; i <= MAXSIZE; i++)
 	{
 		if (freqtable[i] > 0)
 		{
 			huffnode node;
-			node.glyph = (char)i;
+			node.glyph = (unsigned char)i;
 			node.freq = freqtable[i];
 			node.left = -1;
 			node.right = -1;
@@ -275,7 +291,7 @@ int buildHuffTreeFromFile(char inputFileBuffer[])
 	int index = filenameSize + 8;
 	for (int i = 0; i < numOfEntries; i++)
 	{
-		hufftable[i].glyph = inputFileBuffer[index];
+		hufftable[i].glyph = (unsigned char)inputFileBuffer[index];
 		index += 4;
 		hufftable[i].left = inputFileBuffer[index];
 		index += 4;
@@ -319,7 +335,7 @@ void generateBitCodes(int start, int end, huffCode bitCode){
 	if (hufftable[start].left == -1 && hufftable[start].right == -1){
 		//leaf 
 		huffMap[hufftable[start].glyph] = bitCode;
-		bitCode = "";
+		bitCode.clear();
 		return;
 	}
 
