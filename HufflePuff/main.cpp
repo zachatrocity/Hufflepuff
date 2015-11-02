@@ -162,23 +162,7 @@ void main(){
 		//START CLOCK
 		start = clock();
 
-		errorCode = fopen_s(&file, fn, "rb");
-		// obtain file size:
-		fseek(file, 0, SEEK_END);
-		lSize = ftell(file);
-		rewind(file);
-
-		// allocate memory to contain the whole file:
-		inputFileBuffer = (char*)malloc(sizeof(char)*lSize);
-		if (inputFileBuffer == NULL) { fputs("Memory error", stderr); exit(2); }
-
-		// copy the file into the buffer:
-		result = fread(inputFileBuffer, 1, lSize, file);
-		if (result != lSize) { fputs("Reading error", stderr); exit(3); }
-		/* the whole file is now loaded in the memory buffer. */
-
-		int filenameSize = inputFileBuffer[0];
-		int numOfEntries = inputFileBuffer[filenameSize + 4];
+		//do it with an fstream. duh.
 
 		int index = filenameSize + 8;
 		for (int i = 0; i < numOfEntries; i++)
