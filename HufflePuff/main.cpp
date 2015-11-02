@@ -37,12 +37,14 @@ static ofstream outputFile;
 //utility functions
 string createNewHuffFile(string fn);
 int buildHuffTree();
+int buildHuffTreeFromFile(char[]);
 void generateBitCodes(int start, int end, huffCode bitCode);
 void printFreqTable();
 void printBitCodes();
 void printHuffTable(int size);
 void reheap(int start, int end);
 void log(string l);
+
 
 void main(){
 	clock_t start, end;
@@ -149,7 +151,34 @@ void main(){
 	outputFile.close();
 	//END CLOCK
 	end = clock();
-	cout << "The time was " << (double(end - start) / CLOCKS_PER_SEC) << '\n';
+	cout << "The time to encode the file was " << (double(end - start) / CLOCKS_PER_SEC) << '\n';
+
+	cout << "please enter a .huf file name:" << '\n';
+	cin >> fn;
+
+	//START CLOCK
+	start = clock();
+
+	errorCode = fopen_s(&file, fn, "rb");
+	// obtain file size:
+	fseek(file, 0, SEEK_END);
+	lSize = ftell(file);
+	rewind(file);
+
+	// allocate memory to contain the whole file:
+	inputFileBuffer = (char*)malloc(sizeof(char)*lSize);
+	if (inputFileBuffer == NULL) { fputs("Memory error", stderr); exit(2); }
+
+	// copy the file into the buffer:
+	result = fread(inputFileBuffer, 1, lSize, file);
+	if (result != lSize) { fputs("Reading error", stderr); exit(3); }
+	/* the whole file is now loaded in the memory buffer. */
+
+	last = buildHuffTreeFromFile(inputFileBuffer);
+	generateBitCodes(0, last, "");
+	printBitCodes();
+
+	cout << "Placeholder";
 
 	system("pause");
 }
@@ -230,6 +259,26 @@ int buildHuffTree() {
 	return --f;
 }
 
+int buildHuffTreeFromFile(char inputFileBuffer[])
+{
+	int filenameSize = inputFileBuffer[0];
+	int numOfEntries = inputFileBuffer[filenameSize + 4];
+
+	int index = filenameSize + 8;
+	for (int i = 0; i < numOfEntries; i++)
+	{
+		hufftable[i].glyph = inputFileBuffer[index];
+		index += 4;
+		hufftable[i].left = inputFileBuffer[index];
+		index += 4;
+		hufftable[i].right = inputFileBuffer[index];
+		index += 4;
+		hufftable[i].freq = 1;
+	}
+
+	return numOfEntries;
+}
+
 void reheap(int s, int e){
   	int left = (s << 1) + 1;
 	int right = (s << 1) + 2;
@@ -297,7 +346,6 @@ void printFreqTable()
 
 	cout << '\n';
 }
-
 
 void printBitCodes()
 {
