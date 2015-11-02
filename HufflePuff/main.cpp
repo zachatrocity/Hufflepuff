@@ -11,6 +11,7 @@
 #include <bitset>
 #include <algorithm>
 #include <vector>
+
 using namespace std;
 
 struct huffnode{
@@ -24,15 +25,19 @@ typedef string huffCode;
 
 const static unsigned long long size = 8ULL * 1024ULL * 1024ULL;
 static unsigned long long outBuffer[size];
-const static int MAXSIZE = 257; 
+const static int MAXSIZE = 256; 
 const static int HUFMAXSIZE = 513;
 static int freqtable[MAXSIZE] = { 0 };
 static huffnode hufftable[HUFMAXSIZE] = { -1 };
 static huffCode huffMap[MAXSIZE] = { "" };
-static FILE* oFile;
 static FILE* file;
 static char fn[100];
+//file stuff
+static errno_t errorCode;
+static long lSize;
+static char *inputFileBuffer;
 static ofstream outputFile;
+static size_t result;
 
 //utility functions
 string createNewHuffFile(string fn);
@@ -47,140 +52,143 @@ void log(string l);
 
 
 void main(){
+
 	clock_t start, end;
+	char choice;
 	
-	cout << "please enter a file name:" << '\n';
-	cin >> fn;
+	cout << "Huff or puff? Enter (H/P)" << '\n';
+	cin >> choice;
 
-	//START CLOCK
-	start = clock();
-	
-	errno_t errorCode = fopen_s(&file, fn, "rb");
-	// obtain file size:
-	fseek(file, 0, SEEK_END);
-	long lSize = ftell(file);
-	rewind(file);
-
-	// allocate memory to contain the whole file:
-	char *inputFileBuffer = (char*)malloc(sizeof(char)*lSize);
-	if (inputFileBuffer == NULL) { fputs("Memory error", stderr); exit(2); }
-	
-	// copy the file into the buffer:
-	size_t result = fread(inputFileBuffer, 1, lSize, file);
-	if (result != lSize) { fputs("Reading error", stderr); exit(3); }
-	/* the whole file is now loaded in the memory buffer. */
-
-	//get frequencies
-	for (int i = 0; i < result; i++)
+	if (toupper(choice) == 'H')
 	{
-		freqtable[inputFileBuffer[i]]++;
-	}
-	
-	//eof 
-	freqtable[256] = 1;
 
-	//printFreqTable();
+		cout << "please enter a file name:" << '\n';
+		cin >> fn;
 
-	//begin huffman algorithm
-	int last = buildHuffTree();
+		//START CLOCK
+		start = clock();
 
-	//printHuffTable(0);
+		errorCode = fopen_s(&file, fn, "rb");
+		// obtain file size:
+		fseek(file, 0, SEEK_END);
+		lSize = ftell(file);
+		rewind(file);
 
-	//generate codes
-	generateBitCodes(0, last, "");
-	//
-	//printBitCodes();
+		// allocate memory to contain the whole file:
+		inputFileBuffer = (char*)malloc(sizeof(char)*lSize);
+		if (inputFileBuffer == NULL) { fputs("Memory error", stderr); exit(2); }
 
-	//create file header and write it out
-	outputFile.open(createNewHuffFile(fn), ios::binary);
-	int filesize = strlen(fn);
-	int numEntries = last + 1;
-	outputFile.write((char*)&filesize, sizeof(int));
-	outputFile.write((char*)&fn, filesize);
-	outputFile.write((char*)&numEntries, sizeof last);
+		// copy the file into the buffer:
+		result = fread(inputFileBuffer, 1, lSize, file);
+		if (result != lSize) { fputs("Reading error", stderr); exit(3); }
+		/* the whole file is now loaded in the memory buffer. */
 
-	for (int i = 0; i <= last; i++){
-		outputFile.write((char*)&hufftable[i], sizeof(int) * 3);
-	}
+		fclose(file);
 
-	string encodedData = "";
-	
-	//output the compressed data
-	for (int x = lSize; x > 0; x--)
-	{
-		//encodedData += huffMap[(unsigned char)inputFileBuffer[x]];
-		string code = huffMap[(unsigned char)inputFileBuffer[x]];
-		
-		
+		//get frequencies
+		for (int i = 0; i < result; i++)
+		{
+			freqtable[inputFileBuffer[i]]++;
+		}
+
+		//eof 
+		freqtable[256] = 1;
+
+		//printFreqTable();
+
+		//begin huffman algorithm
+		int last = buildHuffTree();
+
+		//printHuffTable(0);
+
+		//generate codes
+		generateBitCodes(0, last, "");
+		//
+		//printBitCodes();
+
+		////create file header and write it out
+		outputFile.open(createNewHuffFile(fn), ios::binary);
+		int filesize = strlen(fn);
+		int numEntries = last + 1;
+		outputFile.write((char*)&filesize, sizeof(int));
+		outputFile.write((char*)&fn, filesize);
+		outputFile.write((char*)&numEntries, sizeof last);
+
+		for (int i = 0; i <= last; i++){
+			outputFile.write((char*)&hufftable[i], sizeof(int)* 3);
+		}
+
+		string encodedData = "";
+
+		//output the compressed data
+		for (int x = 0; x < lSize; x++)
+		{
+			//encodedData += huffMap[(unsigned char)inputFileBuffer[x]];
+			string code = huffMap[(unsigned char)inputFileBuffer[x]];
+
 			int counter = 0;
-			encodedData += code;
-			while ((encodedData.length() / 8) >= 1)
+			//prepend the code in reverse order
+			reverse(code.begin(), code.end());
+			encodedData.insert(0, code);
+
+			if ((encodedData.length() / 8) >= 1)
 			{
-				bitset<8> hexValue(encodedData.substr(counter, counter + 8));
+				bitset<8> hexValue(encodedData.substr(encodedData.length() - 8, encodedData.length()));
 				unsigned long byte = hexValue.to_ulong();
 				outputFile.write(reinterpret_cast<char*>(&byte), 1);
-				encodedData.erase(encodedData.begin(), encodedData.begin()+7);
+				encodedData.erase(encodedData.end() - 8, encodedData.end());
 				counter += 8;
 			}
+		}
 		
-		//outputFile << hex << uppercase << int(byte);
-		//outputFile.write(reinterpret_cast<char*>(&byte), sizeof byte);
+		//write the remaining if any
+		if (encodedData.length() > 0)
+		{
+			bitset<8> hexValue(encodedData);
+			unsigned long byte = hexValue.to_ulong();
+			outputFile.write(reinterpret_cast<char*>(&byte), 1);
+		}
+
+		outputFile.close();
+
 	}
-
-
-	int remainder = encodedData.length() % 8;
-	for (int i = 0; i < remainder; i++)
+	else if (toupper(choice) == 'P')
 	{
-		encodedData = "0" + encodedData;
+		cout << "please enter a .huf file name:" << '\n';
+		cin >> fn;
+
+		//START CLOCK
+		start = clock();
+
+		errorCode = fopen_s(&file, fn, "rb");
+		// obtain file size:
+		fseek(file, 0, SEEK_END);
+		lSize = ftell(file);
+		rewind(file);
+
+		// allocate memory to contain the whole file:
+		inputFileBuffer = (char*)malloc(sizeof(char)*lSize);
+		if (inputFileBuffer == NULL) { fputs("Memory error", stderr); exit(2); }
+
+		// copy the file into the buffer:
+		result = fread(inputFileBuffer, 1, lSize, file);
+		if (result != lSize) { fputs("Reading error", stderr); exit(3); }
+		/* the whole file is now loaded in the memory buffer. */
+
+		int last = buildHuffTreeFromFile(inputFileBuffer);
+		generateBitCodes(0, last, "");
+		printBitCodes();
+
+		cout << "Placeholder";
+
 	}
 
-	bitset<8> hexValue(encodedData);
-	unsigned long byte = hexValue.to_ulong();
-	outputFile.write(reinterpret_cast<char*>(&byte), 1);
-
-	//for (int i = 0; i < encodedData.length(); i += 8)
-	//{
-	//	bitset <8> hexValue(encodedData.substr(i, i + 8));
-	//	//cout << uppercase << hex << hexValue.to_ulong();
-	//	unsigned long byte = hexValue.to_ulong();
-	//	outputFile.write(reinterpret_cast<char*>(&byte), 1);
-	//}
-
-
-	
-	outputFile.close();
 	//END CLOCK
 	end = clock();
 	cout << "The time to encode the file was " << (double(end - start) / CLOCKS_PER_SEC) << '\n';
-
-	cout << "please enter a .huf file name:" << '\n';
-	cin >> fn;
-
-	//START CLOCK
-	start = clock();
-
-	errorCode = fopen_s(&file, fn, "rb");
-	// obtain file size:
-	fseek(file, 0, SEEK_END);
-	lSize = ftell(file);
-	rewind(file);
-
-	// allocate memory to contain the whole file:
-	inputFileBuffer = (char*)malloc(sizeof(char)*lSize);
-	if (inputFileBuffer == NULL) { fputs("Memory error", stderr); exit(2); }
-
-	// copy the file into the buffer:
-	result = fread(inputFileBuffer, 1, lSize, file);
-	if (result != lSize) { fputs("Reading error", stderr); exit(3); }
-	/* the whole file is now loaded in the memory buffer. */
-
-	last = buildHuffTreeFromFile(inputFileBuffer);
-	generateBitCodes(0, last, "");
-	printBitCodes();
-
-	cout << "Placeholder";
-
-	system("pause");
+	//free memory
+	free(inputFileBuffer);
+	//system("pause");
 }
 
 //1) Header metadata
