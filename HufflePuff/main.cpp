@@ -95,7 +95,7 @@ void main(){
 		}
 
 		////eof 
-		freqtable[MAXSIZE] = 1;
+		freqtable[256] = 1;
 
 		////printFreqTable();
 
@@ -124,12 +124,11 @@ void main(){
 		string encodedData = "";
 
 		//output the compressed data
-		for (int x = 0; x <= lSize; x++)
+		for (int x = 0; x < lSize; x++)
 		{
 			//encodedData += huffMap[(unsigned char)inputFileBuffer[x]];
 			string code = huffMap[(unsigned char)inputFileBuffer[x]];
 
-			int counter = 0;
 			//prepend the code in reverse order
 			reverse(code.begin(), code.end());
 			encodedData.insert(0, code);
@@ -140,10 +139,23 @@ void main(){
 				unsigned long byte = hexValue.to_ulong();
 				outputFile.write(reinterpret_cast<char*>(&byte), 1);
 				encodedData.erase(encodedData.end() - 8, encodedData.end());
-				counter += 8;
 			}
 		}
-		
+
+		//eof
+		string code = huffMap[256];
+		//prepend the code in reverse order
+		reverse(code.begin(), code.end());
+		encodedData.insert(0, code);
+
+		while ((encodedData.length() / 8) >= 1)
+		{
+			bitset<8> hexValue(encodedData.substr(encodedData.length() - 8, encodedData.length()));
+			unsigned long byte = hexValue.to_ulong();
+			outputFile.write(reinterpret_cast<char*>(&byte), 1);
+			encodedData.erase(encodedData.end() - 8, encodedData.end());
+		}
+
 		//write the remaining if any
 		if (encodedData.length() > 0)
 		{
@@ -160,6 +172,7 @@ void main(){
 		cout << "please enter a .huf file name:" << '\n';
 		cin >> fn;
 
+
 		//START CLOCK
 		start = clock();
 
@@ -171,6 +184,7 @@ void main(){
 
 		inputFile.read((char*)&filenameSize, sizeof(filenameSize));
 		inputFile.read(filename, filenameSize);
+		filename[filenameSize] = '\0';
 		inputFile.read((char*)&numEntries, sizeof(numEntries));
 
 		for (int i = 0; i < numEntries; i++)
@@ -196,30 +210,42 @@ void main(){
 		}
 
 		int numBitcodes = 0;
-		map<string, char> bitCodeMap;
+		map<string, int> bitCodeMap;
 		for (int x = 0; x < MAXSIZE; x++) {
 			if (huffMap[x] != "")
 			{
-				bitCodeMap.insert(pair<string, char>(huffMap[x],x));
+				bitCodeMap.insert(pair<string, int>(huffMap[x],(unsigned int)x));
 				numBitcodes++;
 			}
 		}
 
 		string glyph;
-		for (int x = data.length() - 1; x >= 0; x--)
+		int length = data.length() - 1;
+		for (int x = length; x >= 0; x--)
 		{
 			glyph += data.at(x);
 			if (bitCodeMap.count(glyph) > 0) {
-				outputFile.write((char *)bitCodeMap.at(glyph), sizeof (char));
-				//cout << (char)bitCodeMap.at(glyph);
+				unsigned int toWrite = bitCodeMap.at(glyph);
+				if (toWrite < 256)
+				{
+					outputFile.write((char *)&toWrite, 1);
+				} 
+				else {
+					//output eof
+					break;
+				}
 				glyph.clear();
 			}
 		}
 	}
 
+	outputFile.flush();
+	outputFile.close();
+
 	//END CLOCK
 	end = clock();
-	cout << "The time to encode the file was " << (double(end - start) / CLOCKS_PER_SEC) << '\n';
+	string process = (toupper(choice) == 'P') ? "decode" : "encode";
+	cout << "The time to " + process + " the file was " << (double(end - start) / CLOCKS_PER_SEC) << '\n';
 	//free memory
 	free(inputFileBuffer);
 	system("pause");
@@ -243,12 +269,12 @@ int buildHuffTree() {
 
 	//build sorted ascending array
 	int loc = 0;
-	for (int i = 0; i <= MAXSIZE; i++)
+	for (int i = 0; i < MAXSIZE; i++)
 	{
 		if (freqtable[i] > 0)
 		{
 			huffnode node;
-			node.glyph = (unsigned char)i;
+			node.glyph = i;
 			node.freq = freqtable[i];
 			node.left = -1;
 			node.right = -1;
