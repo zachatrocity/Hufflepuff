@@ -9,6 +9,7 @@
 #include "huff.h"
 #include <iomanip>
 #include <bitset>
+#include <map>
 #include <algorithm>
 #include <vector>
 #include <climits>
@@ -106,7 +107,7 @@ void main(){
 		////generate codes
 		generateBitCodes(0, last, "");
 		////
-		////printBitCodes();
+		//printBitCodes();
 
 		////create file header and write it out
 		outputFile.open(createNewHuffFile(fn), ios::binary);
@@ -163,24 +164,57 @@ void main(){
 		start = clock();
 
 		//do it with an fstream. duh.
+		ifstream inputFile(fn, ios::binary);
+		int filenameSize = 0;
+		char filename[100];
+		int numEntries = 0;
 
-		int index = filenameSize + 8;
-		for (int i = 0; i < numOfEntries; i++)
+		inputFile.read((char*)&filenameSize, sizeof(filenameSize));
+		inputFile.read(filename, filenameSize);
+		inputFile.read((char*)&numEntries, sizeof(numEntries));
+
+		for (int i = 0; i < numEntries; i++)
 		{
-			hufftable[i].glyph = (unsigned char)inputFileBuffer[index];
-			index += 4;
-			hufftable[i].left = inputFileBuffer[index];
-			index += 4;
-			hufftable[i].right = inputFileBuffer[index];
-			index += 4;
+			inputFile.read((char*)&hufftable[i].glyph, sizeof(int));
+			inputFile.read((char*)&hufftable[i].left, sizeof(int));
+			inputFile.read((char*)&hufftable[i].right, sizeof(int));
 			hufftable[i].freq = 1;
 		}
 		
-		generateBitCodes(0, numOfEntries, "");
-		printBitCodes();
+		generateBitCodes(0, numEntries, "");
+		
+		outputFile.open(filename, ios::binary);
 
-		cout << "Placeholder";
+		//vector<bitset<8>> data;
+		string data;
+		bitset<8> byte;
+		while (!inputFile.eof())
+		{
+			inputFile.read((char*)&byte, 1);
+			data.insert(0, byte.to_string());
+			//data.push_back(byte);
+		}
 
+		int numBitcodes = 0;
+		map<string, char> bitCodeMap;
+		for (int x = 0; x < MAXSIZE; x++) {
+			if (huffMap[x] != "")
+			{
+				bitCodeMap.insert(pair<string, char>(huffMap[x],x));
+				numBitcodes++;
+			}
+		}
+
+		string glyph;
+		for (int x = data.length() - 1; x >= 0; x--)
+		{
+			glyph += data.at(x);
+			if (bitCodeMap.count(glyph) > 0) {
+				outputFile.write((char *)bitCodeMap.at(glyph), sizeof (char));
+				//cout << (char)bitCodeMap.at(glyph);
+				glyph.clear();
+			}
+		}
 	}
 
 	//END CLOCK
