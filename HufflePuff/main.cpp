@@ -89,7 +89,7 @@ void main(){
 
 
 		//get frequencies
-		for (size_t i = 0; i <= result; i++)
+		for (size_t i = 0; i < result; i++)
 		{
 			freqtable[(unsigned char)inputFileBuffer[i]]++;
 		}
@@ -239,7 +239,7 @@ void main(){
 		}
 	}
 
-	outputFile.flush();
+	
 	outputFile.close();
 
 	//END CLOCK
